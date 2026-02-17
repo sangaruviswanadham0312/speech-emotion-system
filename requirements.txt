@@ -1,0 +1,6 @@
+flask
+numpy
+librosa
+scikit-learn
+opencv-python
+soundfile
