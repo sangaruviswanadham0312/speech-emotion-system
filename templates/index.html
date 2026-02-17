@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emotion Recognition System</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            /* Background image pampina blue face photo ikkada set avthundi */
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('/static/image_8b7a1f.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .glass-container {
+            background: rgba(10, 25, 47, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 40px;
+            border-radius: 25px;
+            width: 90%;
+            max-width: 900px;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(0, 210, 255, 0.2);
+            border: 1px solid rgba(0, 210, 255, 0.1);
+        }
+
+        /* Naina, nuvvu adigina title ikkada undi */
+        .main-title {
+            font-size: 28px;
+            color: #00d2ff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+            border-bottom: 2px solid rgba(0, 210, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .section {
+            background: rgba(22, 33, 62, 0.6);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            transition: 0.3s;
+        }
+
+        .section:hover { background: rgba(22, 33, 62, 0.8); }
+
+        .btn {
+            padding: 12px 28px;
+            border-radius: 30px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-predict { background: #00d2ff; color: #0a192f; }
+        .btn-online { background: #e94560; color: white; }
+        .btn-off { background: #444; color: white; }
+
+        .btn:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(0, 210, 255, 0.4); }
+
+        video {
+            width: 100%;
+            max-width: 500px;
+            border-radius: 15px;
+            border: 2px solid #00d2ff;
+            background: #000;
+            margin: 15px 0;
+        }
+
+        .result-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2ecc71;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="glass-container">
+    <div class="main-title">
+        A Computational Approach to Human Emotion Identification from Voice Signals
+    </div>
+
+    <div class="section">
+        <h3>📂 Offline Emotion Analysis</h3>
+        <p>Upload audio or video file to identify emotion</p>
+        <input type="file" id="offlineFile" style="margin-bottom: 15px;">
+        <br>
+        <button class="btn btn-predict" onclick="runOffline()">Analyze File</button>
+        <div id="res1" class="result-text"></div>
+    </div>
+
+    <div class="section">
+        <h3>🔴 Online Hybrid Recognition</h3>
+        <video id="webcam" autoplay muted></video><br>
+        
+        <button class="btn btn-online" id="startBtn" onclick="startLive()">Start Online Mode</button>
+        <button class="btn btn-predict" id="stopBtn" onclick="stopAndPredict()" style="display:none;">Predict Real Emotion</button>
+        <button class="btn btn-off" id="offBtn" onclick="killCamera()" style="display:none;">Camera Off</button>
+        
+        <div id="res2" class="result-text"></div>
+    </div>
+</div>
+
+<script>
+    let mediaRecorder, chunks = [], liveStream;
+
+    // Offline logic
+    async function runOffline() {
+        let fileInput = document.getElementById('offlineFile').files[0];
+        if(!fileInput) return alert("Naina, file select chey!");
+        
+        let formData = new FormData();
+        formData.append('file', fileInput);
+        document.getElementById('res1').innerText = "Processing...";
+        
+        let response = await fetch('/predict_offline', { method: 'POST', body: formData });
+        let data = await response.json();
+        document.getElementById('res1').innerText = data.emotion;
+    }
+
+    // Online Hybrid logic
+    async function startLive() {
+        liveStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('webcam').srcObject = liveStream;
+        
+        mediaRecorder = new MediaRecorder(liveStream);
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+            const blob = new Blob(chunks, { type: 'audio/wav' });
+            const formData = new FormData();
+            formData.append('audio', blob);
+            
+            document.getElementById('res2').innerText = "Analyzing Face + Voice Patterns...";
+            let response = await fetch('/predict_online', { method: 'POST', body: formData });
+            let data = await response.json();
+            document.getElementById('res2').innerText = data.emotion;
+            chunks = [];
+        };
+
+        mediaRecorder.start();
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'inline';
+        document.getElementById('offBtn').style.display = 'inline';
+    }
+
+    function stopAndPredict() {
+        if(mediaRecorder) mediaRecorder.stop();
+    }
+
+    // Camera Off button logic
+    function killCamera() {
+        if (liveStream) {
+            liveStream.getTracks().forEach(track => track.stop());
+            document.getElementById('webcam').srcObject = null;
+            document.getElementById('startBtn').style.display = 'inline';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('offBtn').style.display = 'none';
+            document.getElementById('res2').innerText = "Camera Session Closed.";
+        }
+    }
+</script>
+
+</body>
+</html>
